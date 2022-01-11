@@ -1,12 +1,16 @@
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from .serializers import ProductListCreateSerializer, ProductRetrieveSerializer, ProductImageListCreateSerializer, ProductImageDetailSerializer
+from .serializers import ProductListCreateSerializer, ProductRetrieveSerializer, ProductImageListCreateSerializer, \
+                        ProductImageDetailSerializer, BookMarkSerializer
 from ..models import Product, ProductImage, TodaysPick, BookMark, Category
 from . import pagination, permissions
-from rest_framework.views import APIView
 
-from .utils import get_products_by_category, search_product
+from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.response import Response
+
+from .utils import get_products_by_category, search_product, get_product
 
 from django.contrib.auth import get_user_model
 
@@ -20,6 +24,8 @@ class ProductListCreateAPIView(ListCreateAPIView):
 
     def get_queryset(self):
         qs = Product.objects.all()
+
+        # self.serializer_class.context["raw_path"] = raw_path
         qs = self.filter_through_name(qs)
         qs = self.filter_through_category(qs)
         return qs
@@ -106,4 +112,46 @@ class ProductImageDetailAPIView(RetrieveUpdateDestroyAPIView):
 
 
 class UserBookmarkAPIView(APIView):
-    pass
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, ]
+    
+    def get(self, *args, **kwargs):
+        self.check_permissions(self.request)    
+        user = self.request.user
+        qs = user.bookmarks.all()
+        data = {
+            "results": BookMarkSerializer(qs, many=True).data
+        }
+        return Response(data, status.HTTP_200_OK)
+
+    def post(self, *args, **kwargs):
+        self.check_permissions(self.request)
+        product_slug = self.request.query_params.get("product_slug")
+        if not product_slug:
+            raise PermissionDenied("Please Provide a product_slug to continue")
+
+        product = get_product(product_slug)
+        user = self.request.user
+        qs = user.bookmarks.filter(product=product)
+        if qs.exists():
+            raise ValidationError("User has already Bookmarked")
+
+        bookmark_obj = user.bookmarks.create(product=product)
+        serialized = BookMarkSerializer(bookmark_obj)
+        return Response(serialized.data, status.HTTP_201_CREATED)
+
+
+    def delete(self, *args, **kwargs):
+        self.check_permissions(self.request)
+        product_slug = self.request.query_params.get("product_slug")
+        if not product_slug:
+            raise PermissionDenied("Please Provide a product_slug to continue")
+
+        product = get_product(product_slug)
+        user = self.request.user
+        qs = user.bookmarks.filter(product=product)
+        if not qs.exists():
+            raise NotFound("BookMark for this user not Found")
+        bookmark_obj = qs.get()
+        bookmark_obj.delete()
+        return Response({"status": "un-bookmarked"}, status.HTTP_200_OK)
+

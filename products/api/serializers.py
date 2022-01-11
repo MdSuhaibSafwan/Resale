@@ -11,10 +11,25 @@ class ProductListCreateSerializer(ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     slug = serializers.SlugField(read_only=True)
     status = serializers.CharField(read_only=True)
+    front_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = "__all__"
+
+    def get_front_image(self, serializer):
+        try:
+            image_obj = serializer.images.order_by("-last_updated")[0]
+        except IndexError:
+            return None
+        
+        image_url = image_obj.image.url
+        if "http" not in image_url:
+            request = self.context.get("request")
+            http = request.get_raw_uri().split(request.get_host())[0]
+            raw_path = http + request.get_host()
+            image_url = raw_path + image_url
+        return image_url
 
 
 class ProductImageListCreateSerializer(ModelSerializer):
@@ -43,4 +58,14 @@ class ProductRetrieveSerializer(ModelSerializer):
 
     class Meta:
         model = Product
+        fields = "__all__"
+
+
+class BookMarkSerializer(ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    product = ProductListCreateSerializer(read_only=True)
+    slug = serializers.SlugField(read_only=True)
+
+    class Meta:
+        model = BookMark
         fields = "__all__"
