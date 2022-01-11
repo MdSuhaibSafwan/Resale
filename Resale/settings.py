@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'products.apps.ProductsConfig',
+    'chat.apps.ChatConfig',
     # 'order.apps.OrderConfig',
 
     'rest_framework',
