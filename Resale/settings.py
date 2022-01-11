@@ -15,6 +15,8 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
+    'channels',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -61,6 +63,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Resale.wsgi.application'
+ASGI_APPLICATION = "Resale.async_urls.application"
 
 DATABASES = {
     'default': {
