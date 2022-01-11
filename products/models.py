@@ -33,6 +33,11 @@ def category_in_tuple():
 
 class Product(models.Model):
     CATEGORY = category_in_tuple()
+    PRODUCT_STATUS = (
+        ("ON-SELL", "ON-SELL"),
+        ("ORDERED", "ORDERED"),
+        ("BOUGHT", "BOUGHT"),
+    )
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=False)
     name = models.CharField(max_length=500)
@@ -40,6 +45,7 @@ class Product(models.Model):
     slug = models.SlugField(unique=True)
     description = models.TextField()
     category = models.CharField(max_length=500, choices=CATEGORY)
+    status = models.CharField(max_length=15, choices=PRODUCT_STATUS, default="ON-SELL")
     city = models.CharField(max_length=1000)
     location = models.CharField(max_length=1000)
     date_created = models.DateTimeField(auto_now_add=True)
