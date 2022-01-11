@@ -4,11 +4,14 @@ from ..models import Category, ProductImage, Product, TodaysPick
 from django.utils import timezone
 
 
-def get_products_by_category(title):
+def get_products_by_category(title, qs=None):
     try:
         category = Category.objects.get(title=title)
     except ObjectDoesNotExist:
         raise NotFound("Category with this name is not found.")
+    if qs is not None:
+        qs = qs.filter(category=category.title)
+        return qs
 
     qs = Product.objects.filter(category=category.title)
     return qs
@@ -23,7 +26,11 @@ def get_product(slug):
     return obj
 
 
-def search_product(name):
+def search_product(name, qs=None):
+    if qs is not None:
+        qs = qs.filter(name=name)
+        return qs
+        
     qs = Product.objects.filter(name=name)
     return qs
 
