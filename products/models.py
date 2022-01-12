@@ -109,6 +109,9 @@ class BookMark(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)  
 
+    class Meta:
+        unique_together = ["user", "product"]
+
     def save(self, *args, **kwargs):
         slug = self.slug
         if (slug is None) or (slug == ""):

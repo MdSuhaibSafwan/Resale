@@ -46,12 +46,47 @@ class MessageForRoomSerializer(ModelSerializer):
 
 
 class ChatingRoomSerializer(ModelSerializer):
-    user1 = serializers.StringRelatedField(read_only=True)
-    user2 = serializers.StringRelatedField(read_only=True)
-    
+    """
+    This Serializer is created to see the list of users current-user has chatted with
+    """
+    user = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    unseen_message = serializers.SerializerMethodField()
+
     class Meta:
         model = ChatingRoom
-        fields = "__all__"
+        exclude = ["user1", "user2", "date_created", "last_updated"]
+
+    def get_user(self, serializer):
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        return self.get_user_from_serializer_and_request(serializer, request).username
+
+    def get_user_from_serializer_and_request(self, serializer, request):
+        curr_user = request.user
+        if curr_user == serializer.user1:
+            return serializer.user2
+
+        return serializer.user1
+
+
+    def get_last_message(self, serializer):
+        obj = serializer.ch_messages.first()
+        if not obj:
+            return "no_messages"
+        serialized = ChatingRoomMessageListSerializer(obj)
+        return serialized.data
+
+    def get_unseen_message(self, serializer):
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        user = self.get_user_from_serializer_and_request(serializer, request)
+        qs = serializer.ch_messages.filter(seen=False, sent_by_user=user)
+        return qs.count()
 
 
 
