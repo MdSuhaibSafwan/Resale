@@ -12,6 +12,8 @@ from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 import json
 from django.db.models import Q
 
+from .utils import get_user, send_message
+
 
 class MessageConsumer(AsyncConsumer):
     
@@ -19,16 +21,31 @@ class MessageConsumer(AsyncConsumer):
         print("Connected ", event)
         await self.send({"type": "websocket.accept"})
 
-        # token = self.scope["url_route"]["kwargs"]["token"]
-        # user = await self.get_user_by_token(token)
-        # chat_room = f"message_{user.username}"
-        # print(chat_room)
+        url_queries = str(self.scope["query_string"].decode("utf-8"))
+        and_split = url_queries.split("&")
+        url_queries = {}
+        for i in and_split:
+            key_pair = i.split("=")
+            url_queries[key_pair[0]] = key_pair[1]
 
-        # self.chat_room = chat_room
-        # await self.channel_layer.group_add(
-        #     chat_room,
-        #     self.channel_name,
-        # )
+        token = url_queries.get("token")
+
+        user = await self.get_user_by_token(token)
+        if user is None:
+            await self.send({"type": "websocket.close"})
+            return False
+
+        print("Authenticated User ->", user)
+        self.scope["user"] = user
+
+        chat_room = f"message_{user}"
+        print("Chat Room ->", chat_room)
+
+        self.chat_room = chat_room
+        await self.channel_layer.group_add(
+            chat_room,
+            self.channel_name,
+        )
 
     @database_sync_to_async
     def get_user_by_token(self, token):
@@ -36,62 +53,55 @@ class MessageConsumer(AsyncConsumer):
         if qs.exists():
             return qs.get().user
 
-        raise ObjectDoesNotExist("Token with this key does not exist")
+        return None
 
     async def send_message(self, event):
         data = event["data"]
         await self.send({"type": "websocket.send", "text": data})
 
     async def websocket_receive(self, event):
-        print("RECEIVED ", event)
+        """
+        Data should be something like this comming from Frontend
+        {
+            "command": "new_message",
+            "message": "Hello World",
+            "user": "new_user"
+        }
+        """
         data = json.loads(event["text"])
-        # print(data)
-        # print("\n")
+        print(data, "\n")
 
-        # seen = data.get("seen")
-        # if seen:
-        #     msg_id = data.get("id")
-        #     token = data.get("token")
-        #     if (not msg_id) or (not token):
-        #         raise PermissionDenied("Message and token is necessary")
+        commands = {
+            "new_message": self.sned_new_message,
+        }
 
-        #     await self.handle_message_seen(msg_id, token)
+        command = data.get("command")
+        try:
+            message = data.get("message")
+            user = data.get("user")
+            await commands[command](message, user)
 
-    async def handle_message_seen(self, msg_id, token):
-        user = await self.get_user_by_token(token)
+        except KeyError as e:
+            print("KEY ERROR: ", e)
+            await self.send({"type": "websocket.close"})
+
+        return False
+
+    async def sned_new_message(self, message, user):
+        print("Inside Send Message", message, user)
+        user = await get_user(user)
+        if user is None:
+            await self.send({"type": "websocket.close"})
+            return
+
         print(user)
-        msg = await self.mark_as_seen(msg_id, user)
-        if msg:
-            chat_room = f"message_{msg.sent_by_user}"
-            print(chat_room)
-            await self.channel_layer.group_send(
-                chat_room,
-                {
-                    "type": "send_seen",
-                    "data": "seen",
-                },
-            )
+        curr_user = self.scope["user"]
+        message = await send_message(from_user=curr_user, to_user=user, text=message)
+        if message is None:
+            await self.send({"type": "websocket.close"})
+            return
 
-            print("Sent seen")
-
-    @database_sync_to_async
-    def mark_as_seen(self, msg_id, user):
-        qs = ChatingRoomMessage.objects.filter(id=int(msg_id))
-        if qs.exists():
-            msg = qs.get()
-            print("Got message")
-            print(msg.get_to_user)
-            if msg.get_to_user == user:
-                msg.seen = True
-                msg.save()
-                print("Marked as seen")
-                return msg
-            return None
-        raise ObjectDoesNotExist("message with this id is not Found")
-
-    async def send_seen(self, event):
-        print("Sending seen")
-        await self.send({"type": "websocket.send", "text": event["data"]})
-
+        print(message)
+    
     async def websocket_disconnect(self, event):
         print("DISCONNECTED ", event)
