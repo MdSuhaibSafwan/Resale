@@ -7,6 +7,7 @@ from string import ascii_letters
 from django.utils import timezone
 
 from django.contrib.auth import get_user_model
+from products.models import Product
 
 User = get_user_model()
 
@@ -120,3 +121,22 @@ class ChatingRoomMessage(models.Model):
         return f"{self.sent_by_user}  -> {self.message}"
 
 
+
+class Offer(models.Model):
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="gave_offer")
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_offer")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_offer")
+    price = models.FloatField()
+    slug = models.SlugField(unique=True)
+    accepted = models.BooleanField(default=False)
+    counter_offer = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        slug = self.slug
+
+        if slug is None or slug == "" or slug == "slug":
+            self.slug = slugify(str(self.message[:10]) + random_slug_gen(10))
+
+        return super().save(*args, **kwargs)
