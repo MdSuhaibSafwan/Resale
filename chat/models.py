@@ -137,6 +137,6 @@ class Offer(models.Model):
         slug = self.slug
 
         if slug is None or slug == "" or slug == "slug":
-            self.slug = slugify(str(self.message[:10]) + random_slug_gen(10))
+            self.slug = random_slug_gen(25)
 
         return super().save(*args, **kwargs)

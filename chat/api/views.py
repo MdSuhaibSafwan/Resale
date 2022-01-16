@@ -6,12 +6,16 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from rest_framework.permissions import IsAuthenticated
-from .serializers import ChatingRoomSerializer, MessageCreateSerializer, ChatingRoomMessageListSerializer
+from .serializers import ChatingRoomSerializer, MessageCreateSerializer, ChatingRoomMessageListSerializer, OfferSerializer
 
-from ..models import ChatingRoomMessage, ChatingRoom
+from django.db.models import Q
+from ..models import ChatingRoomMessage, ChatingRoom, Offer
 from django.contrib.auth import get_user_model
+from products.models import Product
 
 from django.shortcuts import get_object_or_404
+
+from rest_framework.permissions import IsAuthenticated
 
 User = get_user_model()
 
@@ -98,4 +102,49 @@ class RoomMessagesListAPIView(ListAPIView):
         return qs
 
 
+class OfferListCreateAPIView(ListCreateAPIView):
+    lookup_url_kwarg = "username"
+    serializer_class = OfferSerializer
+    permission_classes = [IsAuthenticated, ]
 
+    def get_user(self):
+        username = self.kwargs.get(self.lookup_url_kwarg)
+        if username == self.request.user.username:
+            raise PermissionDenied("Offer with ownself is denied")
+        try:
+            user = User.objects.get(username=username)
+        except ObjectDoesNotExist:
+            raise NotFound("User with this username not found.")
+
+        return user
+
+    def get_offers(self):
+        user = self.get_user()
+        curr_user = self.request.user
+        qs = Offer.objects.filter(Q(from_user=user, to_user=curr_user) | Q(from_user=curr_user, to_user=user))
+        return qs
+    
+    def get_queryset(self):
+        return self.get_offers()
+
+    def perform_create(self, serializer):
+        qs = self.get_offers.filter(accepted=True)
+        print(qs)
+        if qs.exists():
+            raise PermissionDenied("An offer has been accepted")
+        user = self.get_user()
+        curr_user = self.request.user
+        product = self.get_product()
+        serializer.save(from_user=curr_user, to_user=user, product=product)
+
+    def get_product(self):
+        product_id = self.request.query_params.get("product_id")
+        if product_id is None:
+            raise PermissionDenied("pls provide a product id")
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except ObjectDoesNotExist:
+            raise NotFound("User with this username not found.")
+
+        return product

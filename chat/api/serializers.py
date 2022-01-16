@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
-from ..models import ChatingRoom, ChatingRoomMessage
+from ..models import ChatingRoom, ChatingRoomMessage, Offer
+from products.api.serializers import ProductListCreateSerializer
 
 User = get_user_model()
 
@@ -157,4 +158,17 @@ class RoomForTotalMessagingSerializer(ModelSerializer):
         user = self.get_user_from_serializer_and_request(serializer, request)
         qs = serializer.ch_messages.filter(seen=False, sent_by_user=user)
         return qs.count()
+
+
+
+class OfferSerializer(ModelSerializer):
+    from_user = serializers.StringRelatedField()
+    to_user = serializers.StringRelatedField()
+    accepted = serializers.BooleanField(read_only=True)
+    product = ProductListCreateSerializer(read_only=True)
+    slug = serializers.SlugField(read_only=True)
+
+    class Meta:
+        model = Offer
+        fields = "__all__"
 
