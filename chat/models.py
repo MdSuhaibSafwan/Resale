@@ -129,6 +129,7 @@ class Offer(models.Model):
     price = models.FloatField()
     slug = models.SlugField(unique=True)
     accepted = models.BooleanField(default=False)
+    disabled = models.BooleanField(default=False)
     counter_offer = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -140,3 +141,6 @@ class Offer(models.Model):
             self.slug = random_slug_gen(25)
 
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.id)

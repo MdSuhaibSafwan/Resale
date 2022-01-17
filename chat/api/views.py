@@ -125,17 +125,48 @@ class OfferListCreateAPIView(ListCreateAPIView):
         return qs
     
     def get_queryset(self):
-        return self.get_offers()
+        qs = self.get_offers()
+        return qs.filter(disabled=False)
+
+    def get_counter_offer(self, qs=None):
+        offer_id = self.request.query_params.get("offer_id")
+        if offer_id is None:
+            if qs is None:
+                raise PermissionDenied("Internal server error")
+            
+            qs = qs.filter(disabled=False, to_user=self.request.user)
+            if qs.exists():
+                raise PermissionDenied("Pls provide a Offer id for counter offer")
+
+        try:
+            offer = Offer.objects.get(id=offer_id)
+        except ObjectDoesNotExist:
+            raise NotFound("Offer with this id is not found.")
+
+        curr_user = self.request.user
+        if offer.disabled == True:
+            raise PermissionDenied("Offer is Disabled")
+
+        if offer.from_user == curr_user:
+            raise PermissionDenied("Own offer cannot be given a counter offer")
+
+        return offer   
 
     def perform_create(self, serializer):
-        qs = self.get_offers.filter(accepted=True)
+        qs = self.get_offers()
         print(qs)
-        if qs.exists():
+        if qs.filter(accepted=True).exists():
             raise PermissionDenied("An offer has been accepted")
         user = self.get_user()
         curr_user = self.request.user
         product = self.get_product()
-        serializer.save(from_user=curr_user, to_user=user, product=product)
+        counter_offer = self.get_counter_offer(qs)
+        from_user_offer_qs = qs.filter(from_user=curr_user)
+        for i in from_user_offer_qs:
+            i.disabled = True
+            i.save()
+
+        serializer.save(from_user=curr_user, to_user=user, product=product, counter_offer=counter_offer)
 
     def get_product(self):
         product_id = self.request.query_params.get("product_id")

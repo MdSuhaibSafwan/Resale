@@ -164,8 +164,10 @@ class RoomForTotalMessagingSerializer(ModelSerializer):
 class OfferSerializer(ModelSerializer):
     from_user = serializers.StringRelatedField()
     to_user = serializers.StringRelatedField()
-    accepted = serializers.BooleanField(read_only=True)
     product = ProductListCreateSerializer(read_only=True)
+    accepted = serializers.BooleanField(read_only=True)
+    disabled = serializers.BooleanField(read_only=True)
+    counter_offer = serializers.StringRelatedField()
     slug = serializers.SlugField(read_only=True)
 
     class Meta:
