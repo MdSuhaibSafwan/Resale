@@ -105,10 +105,35 @@ class ProductImageListCreateAPIView(ListCreateAPIView):
         serializer.save(product=product)
 
     
-
-
 class ProductImageDetailAPIView(RetrieveUpdateDestroyAPIView):
-    pass
+    serializer_class = ProductImageDetailSerializer
+    pagination_class = pagination.Results20SetPagination
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, ]
+    lookup_url_kwarg = "image_slug"
+
+    def get_product_image(self):
+        slug = self.kwargs.get(self.lookup_url_kwarg)
+        try:
+            obj = ProductImage.objects.get(slug=slug)
+        except ObjectDoesNotExist:
+            raise NotFound("ProductImage with this Slug is not Found")      
+
+        return obj  
+
+    def get_object(self):
+        obj = self.get_product_image()
+        self.object = obj
+        return obj
+
+    def perform_update(self, serializer):
+        curr_user = self.request.user
+        if self.object.product.user != curr_user:
+            raise PermissionDenied("User is not permitted to change it's image")
+
+        serializer.save()
+
+
+
 
 
 class UserBookmarkAPIView(APIView):
