@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -84,12 +85,17 @@ class ProductImage(models.Model):
 class TodaysPick(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     slug = models.SlugField(unique=True)
+    picked_till_date = models.DateTimeField()
     date_created = models.DateField(auto_now_add=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)  
 
     def save(self, *args, **kwargs):
         slug = self.slug
+        picked_till_date = self.picked_till_date
+        if (picked_till_date is None) or (picked_till_date == ""):
+            self.picked_till_date = timezone.now() + timedelta(days=1)
+            
         if (slug is None) or (slug == ""):
             self.slug = slugify(self.product.name) + "|today-pick" + create_random_slug()
 

@@ -2,7 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from .serializers import ProductListCreateSerializer, ProductRetrieveSerializer, ProductImageListCreateSerializer, \
-                        ProductImageDetailSerializer, BookMarkSerializer
+                        ProductImageDetailSerializer, BookMarkSerializer, TodaysPickSerializer
 from ..models import Product, ProductImage, TodaysPick, BookMark, Category
 from . import pagination, permissions
 
@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 
-from .utils import get_products_by_category, search_product, get_product
+from .utils import get_products_by_category, search_product, get_product, get_todays_pick_in_accordance_to_time
 
 from django.contrib.auth import get_user_model
 
@@ -155,3 +155,63 @@ class UserBookmarkAPIView(APIView):
         bookmark_obj.delete()
         return Response({"status": "un-bookmarked"}, status.HTTP_200_OK)
 
+
+class TodaysPickListCreateAPIView(ListCreateAPIView):
+    serializer_class = TodaysPickSerializer
+    permission_classes = [permissions.IsAdminUser, ]
+
+    def get_queryset(self):
+        qs = get_todays_pick_in_accordance_to_time()
+        return qs
+
+    def get_product(self):
+        prod_slug = self.request.query_params.get("product_slug")
+        if prod_slug is None:
+            raise PermissionDenied("Please Provide product_slug as a query_parameter")
+        try:
+            obj = Product.objects.get(slug=prod_slug)
+        except ObjectDoesNotExist:
+            raise NotFound("Product with this Slug is not Found")      
+
+        return obj  
+
+    def perform_create(self, serializer):
+        product = self.get_product()
+        serializer.save(product=product)
+
+
+class TodaysPickRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = TodaysPickSerializer
+    permission_classes = [permissions.IsAdminUser, ]
+    lookup_url_kwarg = "slug"
+
+    def get_todays_pick(self):
+        slug = self.kwargs.get(self.lookup_url_kwarg)
+        try:
+            obj = TodaysPick.objects.get(slug=slug)
+        except ObjectDoesNotExist:
+            raise NotFound("Todays Pick with this Slug is not Found")      
+
+        return obj  
+
+    def get_object(self):
+        obj = self.get_todays_pick()
+        return obj
+
+    def get_queryset(self):
+        return None
+
+    def get_product(self):
+        prod_slug = self.request.query_params.get("set_product")
+        if prod_slug is None:
+            raise PermissionDenied("Please Provide set_product as a query_parameter")
+        try:
+            obj = Product.objects.get(slug=prod_slug)
+        except ObjectDoesNotExist:
+            raise NotFound("Product with this Slug is not Found")      
+
+        return obj  
+
+    def perform_update(self, serializer):
+        product = self.get_product()
+        serializer.save(product=product)

@@ -49,8 +49,7 @@ def get_product_image(slug):
     return obj
 
 
-def get_todays_pick():
-    time_now = timezone.now().date()
-    qs = TodaysPick.objects.filter(date_created=time_now)
+def get_todays_pick_in_accordance_to_time():
+    time_now = timezone.now()
+    qs = TodaysPick.objects.filter(picked_till_date__gt=time_now)
     return qs
-
